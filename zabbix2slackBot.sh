@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 
 BASEDIR=$(dirname "$0")
 
@@ -11,6 +11,22 @@ fi
 
 dattime=$(date +%Y-%m-%d-%H-%M-%S)
 
+#highload
+#creating the history graph can crash the system on big databases
+#dont create history graph if systemload is to high
+
+#get systemload
+load=$(cat /proc/loadavg | awk '{print $3}')
+
+#set maxload
+maxload=3
+
+if (( $(echo "$maxload > $load" |bc -l) ));  then
+	loadOK="yes"
+else
+	loadOK="no"
+fi
+
 #if come from zabbix
  if [ "${1}" != "" ]; then
     destdir=${LOG_FOLDER}/slack_debug_message_"${dattime}"_.log
@@ -19,7 +35,7 @@ dattime=$(date +%Y-%m-%d-%H-%M-%S)
     message="$3"    
  else #if script runs without any parameter, try to load saved debug data
     channel="debug" #channel to post in
-    message=$(<${LOG_FOLDER}/slack_debug_message_2019-09-20-10-06-10_.log)
+    message=$(<${LOG_FOLDER}/slack_debug_message_2020-01-16-01-29-36_.log)
  fi
 
 
@@ -121,52 +137,56 @@ fi
 
 # get charts
 if [ "${ur[ITEM_ID]}" != "" ]; then
-    #timestamp=$(date +"%Y-%m-%dT%T.%3N%z")
-    timestamp=$(date +%s)    
-    ${cmd_wget} --save-cookies="${chart_cookie}_${timestamp}" --keep-session-cookies --post-data "name=${zabbix_username}&password=${zabbix_password}&enter=Sign+in" -O /dev/null -q "${zabbix_baseurl}/index.php?login=1"
-    ${cmd_wget} --load-cookies="${chart_cookie}_${timestamp}"  -O "${chart_basedir}/graph-${ur[ITEM_ID]}-${timestamp}.png" -q "${zabbix_baseurl}/chart.php?&itemids=${ur[ITEM_ID]}&width=${chart_width}&period=${chart_period}"
-    chart_url="${chart_completeurl}/graph-${ur[ITEM_ID]}-${timestamp}.png"
+    if (( $(echo "$maxload > $load" |bc -l) ));  then 
+    	#timestamp=$(date +"%Y-%m-%dT%T.%3N%z")
+    	timestamp=$(date +%s)    
+    	${cmd_wget} --save-cookies="${chart_cookie}_${timestamp}" --keep-session-cookies --post-data "name=${zabbix_username}&password=${zabbix_password}&enter=Sign+in" -O /dev/null -q "${zabbix_baseurl}/index.php?login=1"
+    	${cmd_wget} --load-cookies="${chart_cookie}_${timestamp}"  -O "${chart_basedir}/graph-${ur[ITEM_ID]}-${timestamp}.png" -q "${zabbix_baseurl}/chart.php?&itemids=${ur[ITEM_ID]}&width=${chart_width}&period=${chart_period}"
+    	chart_url="${chart_completeurl}/graph-${ur[ITEM_ID]}-${timestamp}.png"
 
-    rm -f ${chart_cookie}_${timestamp}
+    	rm -f ${chart_cookie}_${timestamp}
 
-    # if triger url is empty then we link to the graph with the item_id
-    if [ "${ur[TRIGGER_URL]}" == "" ]; then
-        trigger_url=$(${CMD_URL_KUTT} "${zabbix_baseurl}/history.php?action=showgraph&itemids[]=${item_id}")    
-    fi
+    	# if triger url is empty then we link to the graph with the item_id
+    	if [ "${ur[TRIGGER_URL]}" == "" ]; then
+        	trigger_url=$(${CMD_URL_KUTT} "${zabbix_baseurl}/history.php?action=showgraph&itemids[]=${item_id}")    
+    	fi
 
-    GRAPH_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/history.php?action=showgraph&itemids[]=${ur[ITEM_ID]}&from=now-1h&to=now")  
-    AKK_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/zabbix.php?action=acknowledge.edit&eventids[0]=${ur[EVENT_ID]}")  
+    	GRAPH_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/history.php?action=showgraph&itemids[]=${ur[ITEM_ID]}&from=now-1h&to=now")  
+    	AKK_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/zabbix.php?action=acknowledge.edit&eventids[0]=${ur[EVENT_ID]}")  
+    else
+    	load_to_high="No Graph History - System load > 3"
+    fi	
 fi
 
 
-if [ "${ur[URL_A]}" != "" ]; then 
+if [[ "${ur[URL_A]}" != "" && ${loadOK}=="yes" ]]; then 
     URL_A=$(${CMD_URL_KUTT} "${ur[URL_A]}")      
 else
     URL_A="${GRAFANA_LINK}"
 fi
 
-if [ "${ur[URL_B]}" != "" ]; then 
+if [[ "${ur[URL_B]}" != "" && ${loadOK}=="yes" ]]; then 
     URL_B=$(${CMD_URL_KUTT} "${ur[URL_B]}")  
 else
     URL_B="${zabbix_baseurl}"    
 fi
 
 #ack link
-if [ "${ur[EVENT_ID]}" != "" ]; then     
+if [[ "${ur[EVENT_ID]}" != "" && ${loadOK}=="yes" ]]; then     
     ACL_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/zabbix.php?action=acknowledge.edit&eventids[0]=${ur[EVENT_ID]}")    
 else
     ACL_LINK="< ${zabbix_baseurl}/zabbix.php?action=problem.view&ddreset=1 | ZP>"
 fi
 
 #edit item
-if [ "${ur[ITEM_ID]}" != "" ]; then 
+if [[ "${ur[ITEM_ID]}" != "" && ${loadOK}=="yes" ]]; then 
     ITEM_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/items.php?form=update&itemid=${ur[ITEM_ID]}")  
 else
     ITEM_LINK="${zabbix_baseurl}"    
 fi
 
 #edit trigger
-if [ "${ur[TRIGGER_ID]}" != "" ]; then 
+if [[ "${ur[TRIGGER_ID]}" != "" && ${loadOK}=="yes" ]]; then 
     TRIGGER_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/triggers.php?form=update&triggerid=${ur[TRIGGER_ID]}")  
 else
     TRIGGER_LINK="${zabbix_baseurl}"    
@@ -258,7 +278,7 @@ payload="payload={
                             \"color\": \"${color}\",
                                 
                             \"image_url\": \"${chart_url}\",
-                            \"footer\": \"#${ur[TAG]} #${ur[TYPE]} #${ur[TRIGGER_SEVERITY]} \",
+                            \"footer\": \"#${ur[TAG]} #${ur[TYPE]} #${ur[TRIGGER_SEVERITY]} ${load_to_high} \",
                             \"footer_icon\": \"${status_icon_display}\"  	                          
                          }  
                     ]   
