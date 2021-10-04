@@ -1,13 +1,16 @@
 #!/bin/bash
 
+
+#set -x
+
 BASEDIR=$(dirname "$0")
 
 #load config data
 if [[ -e "${BASEDIR}/slackbot.config.sh" ]]; then
      source ${BASEDIR}/slackbot.config.sh
-else  
+else
     exit
-fi  
+fi
 
 dattime=$(date +%Y-%m-%d-%H-%M-%S)
 
@@ -22,9 +25,9 @@ load=$(cat /proc/loadavg | awk '{print $3}')
 maxload=3
 
 if (( $(echo "$maxload > $load" |bc -l) ));  then
-	loadOK="yes"
+        loadOK="yes"
 else
-	loadOK="no"
+        loadOK="no"
 fi
 
 #if come from zabbix
@@ -32,28 +35,28 @@ fi
     destdir=${LOG_FOLDER}/slack_debug_message_"${dattime}"_.log
     printf "%s" "$3" > "$destdir"
     channel="$1"
-    message="$3"    
+    message="$3"
  else #if script runs without any parameter, try to load saved debug data
     channel="debug" #channel to post in
-    message=$(<${LOG_FOLDER}/slack_debug_message_2020-01-16-01-29-36_.log)
+    message=$(<${LOG_FOLDER}/slack_debug_message_2021-03-26-13-15-17_.log)
  fi
 
 
 #zabbix data
 declare -A ur
-while IFS= read -r line ; 
-    do 
-        a=$(echo $line | cut -d'|' -f1)        
+while IFS= read -r line ;
+    do
+        a=$(echo $line | cut -d'|' -f1)
         bbb=$(echo $line | cut -d'|' -f2)
 
-        bb=${bbb//$'\r'/}        
+        bb=${bbb//$'\r'/}
         b=$(echo "$bb" | recode ascii..html)
 
         ur[$a]=$b
 done <<< "${message}"
 
 #colors
-function get_color() 
+function get_color()
 {
     status=$(echo "$1" | tr -d " ")
     severity=$(echo "$2" | tr -d " ")
@@ -61,31 +64,31 @@ function get_color()
 
     if [[ `echo "${status}" | grep 'OK'` ]]; then
         case "${severity}" in
-          'Information') 
+          'Information')
           color="#439FE0"
-          Trigger_icon="info.png" 
+          Trigger_icon="info.png"
           ;;
-          *) 
+          *)
           color="good"
-          Trigger_icon="ok.png" 
+          Trigger_icon="ok.png"
           ;;
         esac
     elif [[ `echo "${status}" | grep 'PROBLEM'` ]]; then
         case "${severity}" in
-          'Information') 
+          'Information')
           color="#439FE0"
-          Trigger_icon="info_red.png" 
+          Trigger_icon="info_red.png"
           ;;
-          'Warning') 
-          color="warning" 
+          'Warning')
+          color="warning"
           Trigger_icon="warning.png"
           ;;
-          'Disaster') 
-          color="warning" 
+          'Disaster')
+          color="warning"
           Trigger_icon="disaster.png"
           ;;
-          *) 
-          color="danger" 
+          *)
+          color="danger"
           Trigger_icon="danger.png"
           ;;
         esac
@@ -93,10 +96,10 @@ function get_color()
         color="#808080"
         Trigger_icon="info.png"
     fi
-    
+
     if [[ `echo "${ret}" | grep 'ICON'` ]]; then
         echo "${Trigger_icon}"
-    else 
+    else
         echo "${color}"
     fi
 }
@@ -110,91 +113,94 @@ type_icon_l="${icon_baseurl}/${ur[TYPE]}.png"
 tag_icon_l="${icon_baseurl}/${ur[TAG]}.png"
 
 #local folder
-StatusIcon_c="${icon_basedir}/${Trigger_icon}" 
-type_icon_c="${icon_basedir}/${ur[TYPE]}.png" 
-tag_icon_c="${icon_basedir}/${ur[TAG]}.png" 
+StatusIcon_c="${icon_basedir}/${Trigger_icon}"
+type_icon_c="${icon_basedir}/${ur[TYPE]}.png"
+tag_icon_c="${icon_basedir}/${ur[TAG]}.png"
 
 #type icon
 if [[ -e "${type_icon_c}" ]]; then
      type_icon_display="${type_icon_l}"
-else  
+else
     type_icon_display="${type_icon_default}"
-fi    
+fi
 
 #tag icon
 if [[ -e "${tag_icon_c}" ]]; then
-     tag_icon_display="${tag_icon_l}" 
-else 
+     tag_icon_display="${tag_icon_l}"
+else
     tag_icon_display="${tag_icon_default}"
-fi    
+fi
 
 #status icon
-if [[ -e "${StatusIcon_c}" ]]; then 
-    status_icon_display="${StatusIcon_l}" 
+if [[ -e "${StatusIcon_c}" ]]; then
+    status_icon_display="${StatusIcon_l}"
 else
     status_icon_display="${status_icon_default}"
-fi    
+fi
 
 # get charts
 if [ "${ur[ITEM_ID]}" != "" ]; then
-    if (( $(echo "$maxload > $load" |bc -l) ));  then 
-    	#timestamp=$(date +"%Y-%m-%dT%T.%3N%z")
-    	timestamp=$(date +%s)    
-    	${cmd_wget} --save-cookies="${chart_cookie}_${timestamp}" --keep-session-cookies --post-data "name=${zabbix_username}&password=${zabbix_password}&enter=Sign+in" -O /dev/null -q "${zabbix_baseurl}/index.php?login=1"
-    	${cmd_wget} --load-cookies="${chart_cookie}_${timestamp}"  -O "${chart_basedir}/graph-${ur[ITEM_ID]}-${timestamp}.png" -q "${zabbix_baseurl}/chart.php?&itemids=${ur[ITEM_ID]}&width=${chart_width}&period=${chart_period}"
-    	chart_url="${chart_completeurl}/graph-${ur[ITEM_ID]}-${timestamp}.png"
+    if (( $(echo "$maxload > $load" |bc -l) ));  then
+        #timestamp=$(date +"%Y-%m-%dT%T.%3N%z")
+        timestamp=$(date +%s)
+        ${cmd_wget} --save-cookies="${chart_cookie}_${timestamp}" --keep-session-cookies --post-data "name=${zabbix_username}&password=${zabbix_password}&enter=Sign+in" -O /dev/null -q "${zabbix_baseurl}/index.php?login=1"
+        #${cmd_wget} --load-cookies="${chart_cookie}_${timestamp}"  -O "${chart_basedir}/graph-${ur[ITEM_ID]}-${timestamp}.png" -q "${zabbix_baseurl}/chart.php?&itemids=${ur[ITEM_ID]}&width=${chart_width}&period=${chart_period}"
+        ${cmd_wget} --load-cookies="${chart_cookie}_${timestamp}"  -O "${chart_basedir}/graph-${ur[ITEM_ID]}-${timestamp}.png" -q "${zabbix_baseurl}/chart.php?from=now-1h&to=now&itemids[0]=${ur[ITEM_ID]}&width=${chart_width}"
+        
+        chart_url="${chart_completeurl}/graph-${ur[ITEM_ID]}-${timestamp}.png"
 
-    	rm -f ${chart_cookie}_${timestamp}
+        rm -f ${chart_cookie}_${timestamp}
 
-    	# if triger url is empty then we link to the graph with the item_id
-    	if [ "${ur[TRIGGER_URL]}" == "" ]; then
-        	trigger_url=$(${CMD_URL_KUTT} "${zabbix_baseurl}/history.php?action=showgraph&itemids[]=${item_id}")    
-    	fi
+        # if triger url is empty then we link to the graph with the item_id
+        if [ "${ur[TRIGGER_URL]}" == "" ]; then
+                trigger_url=$(${CMD_URL_KUTT} "${zabbix_baseurl}/history.php?action=showgraph&itemids[]=${item_id}")
+        fi
 
-    	GRAPH_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/history.php?action=showgraph&itemids[]=${ur[ITEM_ID]}&from=now-1h&to=now")  
-    	AKK_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/zabbix.php?action=acknowledge.edit&eventids[0]=${ur[EVENT_ID]}")  
+        GRAPH_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/history.php?action=showgraph&itemids[]=${ur[ITEM_ID]}&from=now-1h&to=now")
+        #AKK_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/zabbix.php?action=acknowledge.edit&eventids[0]=${ur[EVENT_ID]}")
+        AKK_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/assets/api/event_acknowledge.php?eventids=${ur[EVENT_ID]}")
     else
-    	load_to_high="No Graph History - System load > 3"
-    fi	
+        load_to_high="No Graph History - System load > 3"
+    fi
 fi
 
 
-if [[ "${ur[URL_A]}" != "" && ${loadOK}=="yes" ]]; then 
-    URL_A=$(${CMD_URL_KUTT} "${ur[URL_A]}")      
+if [[ "${ur[URL_A]}" != "" && ${loadOK}=="yes" ]]; then
+    URL_A=$(${CMD_URL_KUTT} "${ur[URL_A]}")
 else
     URL_A="${GRAFANA_LINK}"
 fi
 
-if [[ "${ur[URL_B]}" != "" && ${loadOK}=="yes" ]]; then 
-    URL_B=$(${CMD_URL_KUTT} "${ur[URL_B]}")  
+if [[ "${ur[URL_B]}" != "" && ${loadOK}=="yes" ]]; then
+    URL_B=$(${CMD_URL_KUTT} "${ur[URL_B]}")
 else
-    URL_B="${zabbix_baseurl}"    
+    URL_B="${zabbix_baseurl}"
 fi
 
 #ack link
-if [[ "${ur[EVENT_ID]}" != "" && ${loadOK}=="yes" ]]; then     
-    ACL_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/zabbix.php?action=acknowledge.edit&eventids[0]=${ur[EVENT_ID]}")    
+if [[ "${ur[EVENT_ID]}" != "" && ${loadOK}=="yes" ]]; then
+    ACL_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/zabbix.php?action=acknowledge.edit&eventids[0]=${ur[EVENT_ID]}&context=host")
 else
     ACL_LINK="< ${zabbix_baseurl}/zabbix.php?action=problem.view&ddreset=1 | ZP>"
 fi
 
 #edit item
-if [[ "${ur[ITEM_ID]}" != "" && ${loadOK}=="yes" ]]; then 
-    ITEM_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/items.php?form=update&itemid=${ur[ITEM_ID]}")  
+if [[ "${ur[ITEM_ID]}" != "" && ${loadOK}=="yes" ]]; then
+    ITEM_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/items.php?form=update&itemid=${ur[ITEM_ID]}&context=host")
 else
-    ITEM_LINK="${zabbix_baseurl}"    
+    ITEM_LINK="${zabbix_baseurl}"
 fi
 
 #edit trigger
-if [[ "${ur[TRIGGER_ID]}" != "" && ${loadOK}=="yes" ]]; then 
-    TRIGGER_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/triggers.php?form=update&triggerid=${ur[TRIGGER_ID]}")  
+if [[ "${ur[TRIGGER_ID]}" != "" && ${loadOK}=="yes" ]]; then
+    TRIGGER_LINK=$(${CMD_URL_KUTT} "${zabbix_baseurl}/triggers.php?form=update&triggerid=${ur[TRIGGER_ID]}&context=host")
 else
-    TRIGGER_LINK="${zabbix_baseurl}"    
+    TRIGGER_LINK="${zabbix_baseurl}"
 fi
 
 #update and recovery
 if [ "${ur[RECOVERY_STATUS]}" == "RESOLVED" ] && [ "${ur[ITEM_ID]}" != "" ]; then
-    StatusIcon="${icon_baseurl}/resolved.png"    
+    StatusIcon="${icon_baseurl}/resolved.png"
     PROBLEM_STARTET="${ur[RECOVERY_TIME]}"
     fixed="RESOLVED "
 fi
@@ -204,10 +210,10 @@ payload="payload={
   \"channel\": \"#officeknaak\",
   \"username\": \"${slack_username}\",
   \"unfurl_links\": \"false\",
-  \"icon_url\": \"${type_icon_display}\",   
-  \"text\": \"${ur[STATUS]} ${ur[TRIGGER_NAME]}\", 
+  \"icon_url\": \"${type_icon_display}\",
+  \"text\": \"${ur[STATUS]} ${ur[TRIGGER_NAME]}\",
 
-    \"attachments\": [ 
+    \"attachments\": [
                         {
                             \"mrkdwn_in\":[\"fields\"],
                             \"title\": \"${ur[HOST]}\",
@@ -218,16 +224,16 @@ payload="payload={
                                         \"title\": \"*${ur[STATUS]} ${ur[TRIGGER_NAME]}*\",
                                         \"value\": \"_${ur[VALUE]}_\",
                                         \"short\": false
-                                    } 
-                                    ],                                                      
+                                    }
+                                    ],
                             \"thumb_url\": \"${type_icon_display}\",
                             \"footer\": \"Startet: ${ur[PROBLEM_STARTET]}\",
-                            \"footer_icon\": \"${type_icon_display}\"                               
-                        },                                  
-                        {                            
-                            \"title\": \"${ur[ITEM_KEY]}\",                            
+                            \"footer_icon\": \"${type_icon_display}\"
+                        },
+                        {
+                            \"title\": \"${ur[ITEM_KEY]}\",
                             \"title_link\": \"${TRIGGER_LINK}\",
-                            \"color\": \"${color}\",                            
+                            \"color\": \"${color}\",
                             \"fields\": [
                                     {
                                         \"title\": \"*Last Min 90:*\",
@@ -238,8 +244,8 @@ payload="payload={
                                         \"title\": \"*Last Max 90:*\",
                                         \"value\": \"${ur[LAST_MAX]}\",
                                         \"short\": true
-                                    }  
-                                    ],                           
+                                    }
+                                    ],
                             \"actions\": [
                                            {
                                             \"type\": \"button\",
@@ -250,53 +256,53 @@ payload="payload={
                                             {
                                             \"type\": \"button\",
                                             \"text\": \"Grafana\",
-                                            \"url\": \"${URL_A}\"                                             
+                                            \"url\": \"${URL_A}\"
                                             },
                                             {
                                             \"type\": \"button\",
                                             \"text\": \"Manage\",
                                             \"url\": \"${URL_B}\"
-                                            }, 
+                                            },
                                             {
                                             \"type\": \"button\",
-                                            \"text\": \"Item️\",                                            
+                                            \"text\": \"Item️\",
                                             \"url\": \"${ITEM_LINK}\"
-                                            }, 
+                                            },
                                             {
                                             \"type\": \"button\",
                                             \"text\": \"Trigger\",
                                             \"url\": \"${TRIGGER_LINK}\"
-                                            } 
+                                            }
                                         ],
                             \"thumb_url\": \"${status_icon_display}\",
                             \"footer\": \"${ur[SITE_A]} | ${ur[SITE_B]}\",
-                            \"footer_icon\": \"${tag_icon_display}\"                               
-                        },          
+                            \"footer_icon\": \"${tag_icon_display}\"
+                        },
                         {
                             \"title\": \"Zabbix Graph History\",
                             \"title_link\": \"${GRAPH_LINK}\",
                             \"color\": \"${color}\",
-                                
+
                             \"image_url\": \"${chart_url}\",
                             \"footer\": \"#${ur[TAG]} #${ur[TYPE]} #${ur[TRIGGER_SEVERITY]} ${load_to_high} \",
-                            \"footer_icon\": \"${status_icon_display}\"  	                          
-                         }  
-                    ]   
+                            \"footer_icon\": \"${status_icon_display}\"
+                         }
+                    ]
 }"
-
+#  \"image_url\": \"${chart_url}\",
 #send
-RESPONSE=$(${cmd_curl} -sm ${timeout} --data-urlencode "${payload}" "${slack_url}")  
+RESPONSE=$(${cmd_curl} -sm ${timeout} --data-urlencode "${payload}" "${slack_url}")
 
 # Fallback Basic Infos
 if [[ "$RESPONSE" != 'ok' ]]; then
 
     ERROR_LOG=${LOG_FOLDER}/slack_debug_message_"${dattime}"_ERROR_LOG.log
-    printf "%s" "%s" "$RESPONSE" "$payload" > "$ERROR_LOG"    
+    printf "%s" "%s" "$RESPONSE" "$payload" > "$ERROR_LOG"
 
     to=#officeknaak
     subject="${ur[TRIGGER_NAME]}"
-    message="${ur[VALUE]}"."${destdir}"."${RESPONSE}"   
-    username="${slack_username}" 
+    message="${ur[VALUE]}"."${destdir}"."${RESPONSE}"
+    username="${slack_username}"
 
     recoversub='^RECOVER(Y|ED)?$|^OK$|^Resolved.*'
     problemsub='^PROBLEM.*|^Problem.*'

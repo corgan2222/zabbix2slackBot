@@ -18,7 +18,12 @@ timeout="12"
 #bin config
 cmd_curl="/usr/bin/curl"
 cmd_wget="/usr/bin/wget"
-CMD_URL_KUTT="/usr/bin/kutt"
+
+#kutt api v2
+KUTT_HOST="https://kutt.it"
+KUTT_API_KEY="apikey"
+CMD_URL_KUTT="/usr/lib/zabbix/alertscripts/zabbix2slackBot/kutt.sh"
+
 
 #logfolder
 LOG_FOLDER="/var/log/debug"
